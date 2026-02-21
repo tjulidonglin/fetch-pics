@@ -4,16 +4,17 @@ Instagram 图片下载器 - 学习用途
 注意: 使用前请确保遵守 Instagram 服务条款和相关法律法规
 """
 
-import os
-import re
-import json
-import argparse
-import getpass
-from pathlib import Path
-from urllib.parse import quote
+# 导入必要的库
+import os                           # 操作系统功能
+import re                           # 正则表达式
+import json                         # JSON 处理
+import argparse                     # 命令行参数解析
+import getpass                      # 密码输入
+from pathlib import Path            # 路径处理
+from urllib.parse import quote      # URL 编码
 
-import requests
-from bs4 import BeautifulSoup
+import requests                     # HTTP 请求
+from bs4 import BeautifulSoup       # HTML 解析
 
 
 class InstagramImageDownloader:
@@ -25,6 +26,7 @@ class InstagramImageDownloader:
             username: Instagram 用户名 (可选)
             password: Instagram 密码 (可选)
         """
+        # 设置保存路径并创建目录
         self.save_path = Path(save_path)
         self.save_path.mkdir(parents=True, exist_ok=True)
 
@@ -58,6 +60,7 @@ class InstagramImageDownloader:
         Returns:
             int: 成功下载的图片数量
         """
+        # 打印搜索信息
         print(f"[INFO] 搜索关键词: {keyword}")
         print(f"[INFO] 保存路径: {self.save_path}")
         print(f"[INFO] 最大下载数量: {max_images}")
@@ -65,6 +68,7 @@ class InstagramImageDownloader:
         # 注意: Instagram 需要登录才能访问内容
         # 以下方法仅用于教育演示
 
+        # 初始化下载计数
         downloaded_count = 0
 
         try:
@@ -78,6 +82,7 @@ class InstagramImageDownloader:
             # response = requests.get(search_url, headers=self.headers)
             # 实际使用需要登录态
 
+            # 提示用户需要登录
             print("[WARNING] Instagram 需要登录才能访问内容")
             print("[WARNING] 请参考官方 API 或使用合法的第三方服务")
 
@@ -113,6 +118,7 @@ class InstagramImageDownloader:
                 else:
                     csrf_token = 'missing'
 
+            # 将 CSRF token 添加到请求头
             self.headers['X-CSRFToken'] = csrf_token
 
             # 第二步: 提交登录表单
@@ -126,6 +132,7 @@ class InstagramImageDownloader:
                 'enc_password': f'#PWD_INSTAGRAM_BROWSER:0:{timestamp}:{password}'
             }
 
+            # 发送登录请求
             login_api_url = 'https://www.instagram.com/accounts/login/ajax/'
             login_response = self.session.post(
                 login_api_url,
@@ -134,6 +141,7 @@ class InstagramImageDownloader:
                 timeout=30
             )
 
+            # 解析登录响应
             login_result = login_response.json()
 
             # 检查登录结果
@@ -174,11 +182,14 @@ class InstagramImageDownloader:
             bool: 是否下载成功
         """
         try:
+            # 发送 GET 请求下载图片
             response = self.session.get(image_url, headers=self.headers, timeout=30)
             response.raise_for_status()
 
+            # 构建文件保存路径
             file_path = self.save_path / filename
 
+            # 保存图片文件
             with open(file_path, 'wb') as f:
                 f.write(response.content)
 
@@ -192,6 +203,7 @@ class InstagramImageDownloader:
 
 def main():
     """主函数"""
+    # 创建命令行参数解析器
     parser = argparse.ArgumentParser(
         description='Instagram 图片下载器 - 学习用途'
     )
@@ -222,17 +234,20 @@ def main():
         help='Instagram 密码 (不提供则以访客身份访问)'
     )
 
+    # 解析命令行参数
     args = parser.parse_args()
 
+    # 打印欢迎信息
     print("=" * 60)
     print("Instagram Image Downloader - Learning Purpose Only")
     print("=" * 60)
     print()
 
-    # 如果提供了用户名但没有提供密码，提示用户输入密码 (隐藏输入)
+    # 处理登录信息
     username = args.username
     password = args.password
 
+    # 如果提供了用户名但没有提供密码，提示用户输入密码 (隐藏输入)
     if username and not password:
         password = getpass.getpass(f"请输入 Instagram 账号 {username} 的密码: ")
     elif not username:
@@ -253,6 +268,7 @@ def main():
         max_images=args.number
     )
 
+    # 打印完成信息
     print()
     print("=" * 60)
     print(f"完成! 成功下载 {count} 张图片")

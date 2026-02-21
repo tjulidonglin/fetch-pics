@@ -3,10 +3,12 @@
 贪吃蛇游戏 - Flask Web 版本
 """
 
+# 导入 Flask 框架
 from flask import Flask, render_template_string, jsonify
 import json
 import os
 
+# 创建 Flask 应用实例
 app = Flask(__name__)
 
 # HTML 模板 - 贪吃蛇游戏界面
@@ -96,6 +98,50 @@ HTML_TEMPLATE = """
         .score-box .score-value {
             font-size: 2em;
             font-weight: bold;
+        }
+
+        .speed-control {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+            margin: 15px 0;
+            width: 100%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 15px 20px;
+            border-radius: 10px;
+            color: white;
+        }
+
+        .speed-control label {
+            font-size: 1.1em;
+            font-weight: bold;
+        }
+
+        .speed-control input[type="range"] {
+            width: 200px;
+            height: 8px;
+            -webkit-appearance: none;
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: 5px;
+            outline: none;
+        }
+
+        .speed-control input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 25px;
+            height: 25px;
+            border-radius: 50%;
+            background: white;
+            cursor: pointer;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+        }
+
+        .speed-control #speedValue {
+            font-size: 1.3em;
+            font-weight: bold;
+            min-width: 70px;
+            text-align: center;
         }
 
         .controls {
@@ -210,9 +256,20 @@ HTML_TEMPLATE = """
                     <h3>最高分</h3>
                     <div class="score-value" id="highScore">0</div>
                 </div>
+                <div class="score-box" id="speedBox">
+                    <h3>速度</h3>
+                    <div class="score-value" id="speedDisplay">150ms</div>
+                </div>
             </div>
 
             <canvas id="gameCanvas" width="400" height="400"></canvas>
+
+            <div class="speed-control">
+                <label for="speedRange">🐍 速度: </label>
+                <input type="range" id="speedRange" min="50" max="300" step="10" value="150">
+                <span id="speedValue">150ms</span>
+                <button onclick="resetSpeed()" class="control-btn" style="padding: 8px 15px; font-size: 0.9em; margin-left: 10px;">↺ 重置</button>
+            </div>
 
             <div class="controls">
                 <button class="control-btn" onclick="startGame()">▶️ 开始游戏</button>
@@ -227,6 +284,7 @@ HTML_TEMPLATE = """
                     <li>吃掉食物后蛇会变长并获得分数</li>
                     <li>撞到墙壁或自己的身体游戏结束</li>
                     <li>按空格键可以暂停/继续游戏</li>
+                    <li>拖动滑块可以实时调整蛇的运行速度 (50ms-300ms)</li>
                 </ul>
             </div>
         </div>
@@ -243,7 +301,7 @@ HTML_TEMPLATE = """
         const GRID_SIZE = 20;
         const GRID_WIDTH = 400 / GRID_SIZE;
         const GRID_HEIGHT = 400 / GRID_SIZE;
-        const GAME_SPEED = 150; // 毫秒
+        let gameSpeed = 150; // 毫秒（默认值）
 
         // 游戏状态
         let snake = [];
@@ -258,13 +316,39 @@ HTML_TEMPLATE = """
 
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
+        const speedRange = document.getElementById('speedRange');
+        const speedValue = document.getElementById('speedValue');
+        const speedDisplay = document.getElementById('speedDisplay');
 
         // 初始化
         function init() {
             document.getElementById('highScore').textContent = highScore;
+            document.getElementById('speedDisplay').textContent = gameSpeed + 'ms';
             drawGrid();
             document.addEventListener('keydown', handleKeyPress);
             canvas.addEventListener('click', startGame);
+
+            // 设置速度滑块事件
+            speedRange.addEventListener('input', updateSpeed);
+        }
+
+        // 更新速度
+        function updateSpeed() {
+            gameSpeed = parseInt(speedRange.value);
+            speedValue.textContent = gameSpeed + 'ms';
+            speedDisplay.textContent = gameSpeed + 'ms';
+
+            // 如果游戏正在运行，重新开始定时器
+            if (gameRunning && !gamePaused) {
+                clearInterval(gameInterval);
+                gameInterval = setInterval(moveSnake, gameSpeed);
+            }
+        }
+
+        // 重置速度
+        function resetSpeed() {
+            speedRange.value = 150;
+            updateSpeed();
         }
 
         // 绘制网格
@@ -435,8 +519,8 @@ HTML_TEMPLATE = """
             // 清除之前的定时器
             if (gameInterval) clearInterval(gameInterval);
 
-            // 开始游戏循环
-            gameInterval = setInterval(moveSnake, GAME_SPEED);
+            // 开始游戏循环（使用当前速度）
+            gameInterval = setInterval(moveSnake, gameSpeed);
 
             document.getElementById('gameOverPanel').style.display = 'none';
         }
@@ -452,7 +536,7 @@ HTML_TEMPLATE = """
         function resumeGame() {
             if (!gameRunning || !gamePaused) return;
             gamePaused = false;
-            gameInterval = setInterval(moveSnake, GAME_SPEED);
+            gameInterval = setInterval(moveSnake, gameSpeed);
         }
 
         // 重新开始
@@ -480,27 +564,39 @@ HTML_TEMPLATE = """
 
 @app.route('/')
 def index():
+    """主页面路由 - 返回游戏界面"""
     return render_template_string(HTML_TEMPLATE)
 
 @app.route('/api/highscore', methods=['GET'])
 def get_highscore():
+    """获取最高分 API"""
+    # 初始化最高分
     highscore = 0
+    # 检查最高分文件是否存在
     if os.path.exists('highscore.json'):
+        # 读取并加载最高分数据
         with open('highscore.json', 'r') as f:
             data = json.load(f)
             highscore = data.get('highscore', 0)
+    # 返回 JSON 格式的最高分
     return jsonify({'highscore': highscore})
 
 @app.route('/api/highscore', methods=['POST'])
 def save_highscore():
+    """保存最高分 API"""
     from flask import request
+    # 获取请求中的 JSON 数据
     data = request.get_json()
+    # 提取最高分
     highscore = data.get('highscore', 0)
 
+    # 保存最高分到文件
     with open('highscore.json', 'w') as f:
         json.dump({'highscore': highscore}, f)
 
+    # 返回成功状态
     return jsonify({'status': 'ok'})
 
 if __name__ == '__main__':
+    # 启动 Flask 应用
     app.run(host='0.0.0.0', port=5000, debug=True)
