@@ -1,0 +1,14 @@
+[Unit]
+Description=Snake Game Flask Server
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/root/fetch-pics
+ExecStart=/usr/bin/python3 /root/fetch-pics/snake_game.py
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
